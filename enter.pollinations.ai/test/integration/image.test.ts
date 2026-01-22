@@ -240,3 +240,54 @@ describe("Image Integration Tests", () => {
         },
     );
 });
+
+
+describe("POST /generate/mesh (authenticated)", async () => {
+  test(
+    "should create a mesh task when authenticated",
+    { timeout: 30000 },
+    async ({ apiKey, mocks }) => {
+      await mocks.enable("polar", "tinybird", "vcr");
+      const response = await SELF.fetch(
+        `http://localhost:3000/api/generate/mesh`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            mode: "preview",
+            prompt: "a low-poly cute robot statue",
+            ai_model: "meshy-6",
+            target_polycount: 30000
+          }),
+        },
+      );
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      // Meshy returns { result: "<task-id>" }
+      expect(body.result).toBeDefined();
+    },
+  );
+});
+
+describe("GET /generate/mesh/:id (authenticated)", async () => {
+  test(
+    "should return mesh task status",
+    { timeout: 30000 },
+    async ({ apiKey, mocks }) => {
+      await mocks.enable("polar", "tinybird", "vcr");
+      const id = "some-captured-meshy-task-id"; // use VCR/fixtures or mock
+      const response = await SELF.fetch(
+        `http://localhost:3000/api/generate/mesh/${id}`,
+        {
+          headers: { "authorization": `Bearer ${apiKey}` },
+        },
+      );
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.id || body.result || body.status).toBeDefined();
+    },
+  );
+});
