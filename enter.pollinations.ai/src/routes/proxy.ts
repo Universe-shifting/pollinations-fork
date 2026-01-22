@@ -582,3 +582,60 @@ async function checkBalance({ auth, polar }: AuthVariables & PolarVariables) {
         );
     }
 }
+
+// Schema for validation
+const GenerateMeshRequestSchema = z.object({
+  prompt: z.string().min(1).meta({
+    description: "Text prompt for 3D mesh generation",
+    example: "A futuristic sports car",
+  }),
+  style: z.string().optional().meta({
+    description: "Optional style to apply to the mesh",
+  }),
+  resolution: z.string().optional().meta({
+    description: "Optional mesh resolution, e.g., 'low', 'medium', 'high'",
+  }),
+});
+
+export const meshRoute = factory.createHandlers(
+  validator("json", GenerateMeshRequestSchema),
+  track("generate.mesh"),
+  async (c) => {
+    const log = c.get("log").getChild("generate.mesh");
+
+    await c.var.auth.requireAuthorization();
+    c.var.auth.requireModelAccess();
+    c.var.auth.requireKeyBudget();
+    await checkBalance(c.var);
+
+    const requestBody = await c.req.json();
+    const meshServiceUrl =
+      c.env.MESH_SERVICE_URL || "https://gen.pollinations.ai/mesh";
+
+    const response = await fetch(meshServiceUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-enter-token": c.env.PLN_ENTER_TOKEN,
+        "x-user-api-key": c.var.auth?.apiKey?.rawKey || "",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      log.warn("Mesh generation error {status}: {body}", {
+        status: response.status,
+        body: responseText,
+      });
+      throw new UpstreamError(response.status as ContentfulStatusCode, {
+        message: responseText || getDefaultErrorMessage(response.status),
+        requestUrl: meshServiceUrl,
+      });
+    }
+
+    const data = await response.json();
+    return c.json(data, response.status);
+  }
+);
+
