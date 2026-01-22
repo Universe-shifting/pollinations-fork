@@ -583,18 +583,32 @@ async function checkBalance({ auth, polar }: AuthVariables & PolarVariables) {
     }
 }
 
-// Schema for validation
 const GenerateMeshRequestSchema = z.object({
-  prompt: z.string().min(1).meta({
-    description: "Text prompt for 3D mesh generation",
-    example: "A futuristic sports car",
+  // mode: "preview" | "refine"
+  mode: z.enum(["preview", "refine"]).default("preview").meta({
+    description: 'Task mode: "preview" (geometry) or "refine" (texture)',
   }),
-  style: z.string().optional().meta({
-    description: "Optional style to apply to the mesh",
+  // preview: prompt required for preview, preview_task_id required for refine
+  prompt: z.string().max(600).optional().meta({
+    description: "Prompt describing the 3D object (required for preview)",
   }),
-  resolution: z.string().optional().meta({
-    description: "Optional mesh resolution, e.g., 'low', 'medium', 'high'",
+  preview_task_id: z.string().optional().meta({
+    description: "Preview task id (required for refine)",
   }),
+  ai_model: z.string().optional().meta({
+    description: "Meshy model id (meshy-5, meshy-6, latest)",
+  }),
+  topology: z.enum(["quad", "triangle"]).optional(),
+  target_polycount: z.number().int().min(100).max(300000).optional(),
+  should_remesh: z.boolean().optional(),
+  symmetry_mode: z.enum(["off", "auto", "on"]).optional(),
+  pose_mode: z.string().optional(),
+  // refine-only options
+  enable_pbr: z.boolean().optional(),
+  texture_prompt: z.string().max(600).optional(),
+  texture_image_url: z.string().url().optional(),
+  // generic
+  moderation: z.boolean().optional(),
 });
 
 export const meshRoute = factory.createHandlers(
