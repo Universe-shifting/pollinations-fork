@@ -302,6 +302,82 @@ Get request history and spending data. Supports JSON and CSV formats. Requires `
 
 ##### Status: 403 Permission denied - API key missing \`account:usage\` permission
 
+### GET /account/usage/daily
+
+- **Method:** `GET`
+- **Path:** `/account/usage/daily`
+- **Tags:** gen.pollinations.ai
+
+Get daily aggregated usage data (last 90 days). Supports JSON and CSV formats. Requires `account:usage` permission for API keys. Results are cached for 1 hour.
+
+#### Responses
+
+##### Status: 200 Daily usage records aggregated by date/model
+
+###### Content-Type: application/json
+
+- **`count` (required)**
+
+  `number` — Number of records returned
+
+- **`usage` (required)**
+
+  `array` — Array of daily usage records
+
+  **Items:**
+
+  - **`api_key_names` (required)**
+
+    `array` — List of API key names used for this date/model
+
+    **Items:**
+
+    `string`
+
+  - **`cost_usd` (required)**
+
+    `number` — Total cost in USD
+
+  - **`date` (required)**
+
+    `string` — Date (YYYY-MM-DD format)
+
+  - **`meter_source` (required)**
+
+    `object` — Billing source ('tier', 'pack', 'crypto')
+
+  - **`model` (required)**
+
+    `object` — Model used
+
+  - **`requests` (required)**
+
+    `number` — Number of requests
+
+**Example:**
+
+```json
+{
+  "usage": [
+    {
+      "date": "",
+      "model": "",
+      "meter_source": "",
+      "requests": 1,
+      "cost_usd": 1,
+      "api_key_names": [
+        ""
+      ]
+    }
+  ],
+  "count": 1
+}
+```
+
+##### Status: 401 Unauthorized
+
+##### Status: 403 Permission denied - API key missing \`account:usage\` permission
+
 ### GET /v1/models
 
 - **Method:** `GET`
@@ -995,7 +1071,7 @@ API keys can be created from your dashboard at enter.pollinations.ai. Both key t
 
 - **`model`**
 
-  `string`, possible values: `"openai", "openai-fast", "openai-large", "qwen-coder", "mistral", "openai-audio", "gemini", "gemini-fast", "deepseek", "grok", "gemini-search", "chickytutor", "midijourney", "claude-fast", "claude", "claude-large", "perplexity-fast", "perplexity-reasoning", "kimi", "gemini-large", "nova-fast", "glm", "minimax", "nomnom"`, default: `"openai"` — AI model for text generation. See /v1/models for full list.
+  `string`, possible values: `"openai", "openai-fast", "openai-large", "qwen-coder", "mistral", "openai-audio", "gemini", "gemini-fast", "deepseek", "grok", "gemini-search", "chickytutor", "midijourney", "claude-fast", "claude", "claude-large", "perplexity-fast", "perplexity-reasoning", "kimi", "gemini-large", "gemini-legacy", "nova-fast", "glm", "minimax", "nomnom"`, default: `"openai"` — AI model for text generation. See /v1/models for full list.
 
 - **`parallel_tool_calls`**
 
@@ -1602,6 +1678,142 @@ API keys can be created from your dashboard at enter.pollinations.ai. Both key t
 }
 ```
 
+##### Status: 402 Insufficient pollen balance or API key budget exhausted.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 402,
+  "success": false,
+  "error": {
+    "code": "PAYMENT_REQUIRED",
+    "message": "Insufficient pollen balance or API key budget exhausted.",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
+##### Status: 403 Access denied! You don't have the required permissions for this resource or model.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 403,
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Access denied! You don't have the required permissions for this resource or model.",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
 ##### Status: 500 Oh snap, something went wrong on our end. We're on it!
 
 ###### Content-Type: application/json
@@ -1846,6 +2058,142 @@ true
   "error": {
     "code": "UNAUTHORIZED",
     "message": "You need to authenticate by providing a session cookie or Authorization header (Bearer token).",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
+##### Status: 402 Insufficient pollen balance or API key budget exhausted.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 402,
+  "success": false,
+  "error": {
+    "code": "PAYMENT_REQUIRED",
+    "message": "Insufficient pollen balance or API key budget exhausted.",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
+##### Status: 403 Access denied! You don't have the required permissions for this resource or model.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 403,
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Access denied! You don't have the required permissions for this resource or model.",
     "timestamp": "",
     "details": {
       "name": "",
@@ -2128,6 +2476,142 @@ API keys can be created from your dashboard at enter.pollinations.ai.
   "error": {
     "code": "UNAUTHORIZED",
     "message": "You need to authenticate by providing a session cookie or Authorization header (Bearer token).",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
+##### Status: 402 Insufficient pollen balance or API key budget exhausted.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 402,
+  "success": false,
+  "error": {
+    "code": "PAYMENT_REQUIRED",
+    "message": "Insufficient pollen balance or API key budget exhausted.",
+    "timestamp": "",
+    "details": {
+      "name": "",
+      "stack": ""
+    },
+    "requestId": "",
+    "cause": null
+  }
+}
+```
+
+##### Status: 403 Access denied! You don't have the required permissions for this resource or model.
+
+###### Content-Type: application/json
+
+- **`error` (required)**
+
+  `object`
+
+  - **`code` (required)**
+
+    `string`
+
+  - **`details` (required)**
+
+    `object`
+
+    - **`name` (required)**
+
+      `string`
+
+    - **`stack`**
+
+      `string`
+
+  - **`message` (required)**
+
+    `object`
+
+  - **`timestamp` (required)**
+
+    `string`
+
+  - **`cause`**
+
+    `object`
+
+  - **`requestId`**
+
+    `string`
+
+- **`status` (required)**
+
+  `number`
+
+- **`success` (required)**
+
+  `boolean`
+
+**Example:**
+
+```json
+{
+  "status": 403,
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Access denied! You don't have the required permissions for this resource or model.",
     "timestamp": "",
     "details": {
       "name": "",
