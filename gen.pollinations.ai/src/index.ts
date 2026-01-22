@@ -45,6 +45,12 @@ export default {
             return env.ENTER.fetch(url, request);
         }
 
+        // Mesh routes: /mesh/* → /api/generate/mesh/*
+        if (path === "/mesh" || path.startsWith("/mesh/")) {
+            url.pathname = "/api/generate" + path;
+            return env.ENTER.fetch(url, request);
+        }
+
         // Rewrite API paths: /image/*, /text/*, /v1/* → /api/generate/*
         url.pathname = "/api/generate" + path;
 
