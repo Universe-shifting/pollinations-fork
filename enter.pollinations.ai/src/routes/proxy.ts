@@ -611,45 +611,127 @@ const GenerateMeshRequestSchema = z.object({
   moderation: z.boolean().optional(),
 });
 
-export const meshRoute = factory.createHandlers(
+const meshHandlers = factory.createHandlers(
+  // Validate JSON body for create
   validator("json", GenerateMeshRequestSchema),
   track("generate.mesh"),
   async (c) => {
     const log = c.get("log").getChild("generate.mesh");
 
+    // Require API key auth + model/key budget checks
     await c.var.auth.requireAuthorization();
-    c.var.auth.requireModelAccess();
     c.var.auth.requireKeyBudget();
+    // model access isn't relevant here (Meshy models are external),
+    // but keep balance check for user pollen
     await checkBalance(c.var);
 
-    const requestBody = await c.req.json();
-    const meshServiceUrl =
-      c.env.MESH_SERVICE_URL || "https://gen.pollinations.ai/mesh";
+    // Compose request body for Meshy API using validated JSON
+    const reqBody = await c.req.json();
 
-    const response = await fetch(meshServiceUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-enter-token": c.env.PLN_ENTER_TOKEN,
-        "x-user-api-key": c.var.auth?.apiKey?.rawKey || "",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Meshy base URL (override via env if needed)
+    const MESHY_BASE = c.env.MESHY_BASE_URL || "https://api.meshy.ai/openapi/v2";
 
-    if (!response.ok) {
-      const responseText = await response.text();
-      log.warn("Mesh generation error {status}: {body}", {
-        status: response.status,
-        body: responseText,
-      });
-      throw new UpstreamError(response.status as ContentfulStatusCode, {
-        message: responseText || getDefaultErrorMessage(response.status),
-        requestUrl: meshServiceUrl,
+    // Use server-side Meshy API key stored in env
+    const meshyApiKey = c.env.MESHY_API_KEY;
+    if (!meshyApiKey) {
+      // Missing secret - signal server config problem
+      throw new HTTPException(500, {
+        message: "Meshy integration not configured (missing MESHY_API_KEY)",
       });
     }
 
-    const data = await response.json();
-    return c.json(data, response.status);
-  }
+    // POST to Meshy
+    const target = `${MESHY_BASE}/text-to-3d`;
+    const resp = await fetch(target, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${meshyApiKey}`,
+        "Content-Type": "application/json",
+        // Forward some context for debugging if you like:
+        "x-enter-request-id": c.get("requestId"),
+      },
+      body: JSON.stringify(reqBody),
+    });
+
+    if (!resp.ok) {
+      const bodyText = await resp.text();
+      log.warn("Meshy POST error {status}: {body}", {
+        status: resp.status,
+        body: bodyText,
+      });
+      throw new UpstreamError(resp.status as ContentfulStatusCode, {
+        message: bodyText || getDefaultErrorMessage(resp.status),
+        requestUrl: target,
+      });
+    }
+
+    const json = await resp.json();
+    // Meshy returns { result: "<task-id>" } on success per docs
+    return c.json(json, resp.status);
+  },
 );
 
+// GET /mesh/:id -> proxy to Meshy GET /text-to-3d/:id
+const meshStatusHandlers = factory.createHandlers(
+  track("generate.mesh.status"),
+  async (c) => {
+    await c.var.auth.requireAuthorization();
+    c.var.auth.requireKeyBudget();
+    await checkBalance(c.var);
+
+    const id = c.req.param("id");
+    if (!id) {
+      return c.json({ error: "Missing task id" }, 400);
+    }
+
+    const MESHY_BASE = c.env.MESHY_BASE_URL || "https://api.meshy.ai/openapi/v2";
+    const meshyApiKey = c.env.MESHY_API_KEY;
+    if (!meshyApiKey) {
+      throw new HTTPException(500, {
+        message: "Meshy integration not configured (missing MESHY_API_KEY)",
+      });
+    }
+
+    const target = `${MESHY_BASE}/text-to-3d/${encodeURIComponent(id)}`;
+    const resp = await fetch(target, {
+      headers: {
+        "Authorization": `Bearer ${meshyApiKey}`,
+        "x-enter-request-id": c.get("requestId"),
+      },
+    });
+
+    if (!resp.ok) {
+      const bodyText = await resp.text();
+      c.get("log").getChild("generate.mesh").warn(
+        "Meshy GET error {status}: {body}",
+        { status: resp.status, body: bodyText },
+      );
+      throw new UpstreamError(resp.status as ContentfulStatusCode, {
+        message: bodyText || getDefaultErrorMessage(resp.status),
+        requestUrl: target,
+      });
+    }
+
+    const json = await resp.json();
+    return c.json(json, resp.status);
+  },
+);
+
+// Attach the routes to proxyRoutes
+proxyRoutes
+  .post("/mesh", describeRoute({
+    tags: ["gen.pollinations.ai"],
+    description: "Create a Text→3D task (preview/refine) via Meshy. See Meshy docs for parameters.",
+    responses: {
+      200: { description: "Task created (returns { result: taskId })" },
+      ...errorResponseDescriptions(400, 401, 402, 403, 500),
+    },
+  }), ...meshHandlers)
+  .get("/mesh/:id", describeRoute({
+    tags: ["gen.pollinations.ai"],
+    description: "Retrieve status/result for a Text→3D task (Meshy task id).",
+    responses: {
+      200: { description: "Task object (Meshy response)" },
+      ...errorResponseDescriptions(400, 401, 402, 403, 500),
+    },
+  }), ...meshStatusHandlers);
