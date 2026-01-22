@@ -8,4 +8,6 @@ export type ErrorVariables = {
 export type Env = {
     Bindings: CloudflareBindings;
     Variables: RequestIdVariables & LoggerVariables & ErrorVariables;
+    MESHY_API_KEY: string;
+    MESHY_BASE_URL?: string;
 };
